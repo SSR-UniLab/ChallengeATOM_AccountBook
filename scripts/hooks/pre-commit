@@ -1,0 +1,6 @@
+#!/bin/sh
+# ledger/book.csv がコミットに含まれる場合、README.md を自動更新してコミットに含める。
+if git diff --cached --name-only | grep -q '^ledger/book\.csv$'; then
+    python scripts/update_readme.py || exit 1
+    git add README.md
+fi
