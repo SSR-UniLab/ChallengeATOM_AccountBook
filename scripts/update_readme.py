@@ -18,10 +18,10 @@ DISPLAY_COLUMNS = ["日付", "費目", "内容・購入物", "用途", "金額(�
 AMOUNT_COLUMN = "金額(税込)"
 PURPOSE_COLUMN = "用途"
 
-# 支出の費目。ここに無い費目の行は支出合計・帳簿表から除外する。
-EXPENSE_CATEGORIES = {"物品費", "交通費", "謝金", "その他"}
-# 支出ではないことが分かっている費目（表・合計から除外し、警告も出さない）。
-NON_EXPENSE_CATEGORIES = {"入金"}
+# この列（用途）が空欄の行は帳簿表から除外する。
+# 入金・出金（未払金の回収など）の行は用途が空欄になるため、
+# 支出ではないこれらの行を除外できる。
+FILTER_COLUMN = "用途"
 
 START_MARKER = "<!-- LEDGER:START -->"
 END_MARKER = "<!-- LEDGER:END -->"
@@ -30,7 +30,8 @@ END_MARKER = "<!-- LEDGER:END -->"
 def load_rows():
     with CSV_PATH.open(encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
-        missing = [c for c in DISPLAY_COLUMNS if c not in (reader.fieldnames or [])]
+        required = set(DISPLAY_COLUMNS) | {FILTER_COLUMN}
+        missing = [c for c in required if c not in (reader.fieldnames or [])]
         if missing:
             raise SystemExit(
                 "ledger/book.csv に必要な列が見つかりません: " + ", ".join(missing)
@@ -39,11 +40,6 @@ def load_rows():
             row for row in reader
             if any((value or "").strip() for value in row.values())
         ]
-
-    for row in rows:
-        category = (row.get("費目") or "").strip()
-        if category not in EXPENSE_CATEGORIES and category not in NON_EXPENSE_CATEGORIES:
-            print(f"警告: 未定義の費目 '{category}' (日付: {row.get('日付', '')})")
 
     return rows
 
@@ -62,7 +58,7 @@ def format_amount(value):
 def build_table(rows):
     expense_rows = [
         row for row in rows
-        if (row.get("費目") or "").strip() in EXPENSE_CATEGORIES
+        if (row.get(FILTER_COLUMN) or "").strip()
     ]
 
     aligns = ["---"] * len(DISPLAY_COLUMNS)
